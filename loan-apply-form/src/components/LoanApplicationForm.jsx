@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import FormInput from './FormInput';
 import FormSelect from './FormSelect';
 import FormTextarea from './FormTextarea';
+import FormDateOfBirth from './FormDateOfBirth';
 import { User, Mail, Phone, Calendar, IndianRupee, Send, X, CheckCircle2 } from 'lucide-react';
 import { indianStates } from '../data/indianStates';
 import { citiesByState } from '../data/cities';
@@ -13,7 +14,7 @@ const LoanApplicationForm = ({ onClose }) => {
     fullName: '',
     email: '',
     mobile: '',
-    dob: '',
+    dob: { day: '', month: '', year: '' },
     gender: '',
     state: '',
     city: '',
@@ -59,8 +60,8 @@ const LoanApplicationForm = ({ onClose }) => {
         if (!mobileRegex.test(value.trim())) return 'Enter a valid 10-digit mobile number';
         return '';
       case 'dob':
-        if (!value) return 'Date of birth is required';
-        const birthDate = new Date(value);
+        if (!value || !value.day || !value.month || !value.year) return 'Date of birth is required';
+        const birthDate = new Date(`${value.year}-${value.month}-${value.day}`);
         const today = new Date();
         let age = today.getFullYear() - birthDate.getFullYear();
         const m = today.getMonth() - birthDate.getMonth();
@@ -109,16 +110,34 @@ const LoanApplicationForm = ({ onClose }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let name, value;
+    
+    if (e.target && e.target.name) {
+      name = e.target.name;
+      value = e.target.value;
+    } else if (e.day !== undefined || e.month !== undefined || e.year !== undefined) {
+      name = 'dob';
+      value = e;
+    } else {
+      return;
+    }
+    
     let processedValue = value;
 
-    if (name === 'mobile' || name === 'pincode') {
+    if (name === 'fullName') {
+      processedValue = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (name === 'mobile' || name === 'pincode') {
       processedValue = value.replace(/\D/g, '').slice(0, name === 'mobile' ? 10 : 6);
     } else if (name === 'amount') {
       processedValue = value.replace(/\D/g, '');
     }
 
-    setFormData(prev => ({ ...prev, [name]: processedValue }));
+    setFormData(prev => {
+      if (name === 'dob') {
+        return { ...prev, dob: processedValue };
+      }
+      return { ...prev, [name]: processedValue };
+    });
     
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -166,8 +185,13 @@ const LoanApplicationForm = ({ onClose }) => {
       const newLeadId = generateLeadId();
       setLeadId(newLeadId);
       
+      const dobString = formData.dob?.day && formData.dob?.month && formData.dob?.year
+        ? `${formData.dob.day}/${formData.dob.month}/${formData.dob.year}`
+        : '';
+      
       const lead = {
         ...formData,
+        dob: dobString,
         leadId: newLeadId,
         submittedAt: new Date().toISOString()
       };
@@ -280,7 +304,6 @@ const LoanApplicationForm = ({ onClose }) => {
               placeholder={!formData.state ? 'Select State First' : 'Select City'}
               error={touched.city ? errors.city : ''}
               required
-              disabled={!formData.state}
             />
             
             <FormSelect
@@ -322,14 +345,12 @@ const LoanApplicationForm = ({ onClose }) => {
               required
             />
             
-            <FormInput
+            <FormDateOfBirth
               label="Date of Birth"
-              type="date"
               name="dob"
               value={formData.dob}
               onChange={handleChange}
               onBlur={handleBlur}
-              icon={Calendar}
               error={touched.dob ? errors.dob : ''}
               required
             />
